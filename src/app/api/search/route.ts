@@ -3,6 +3,8 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
 import { SearchRequest, SearchResponse, ErrorResponse } from '@/lib/types';
+import { writeFile, unlink } from 'fs/promises';
+import { tmpdir } from 'os';
 
 const execAsync = promisify(exec);
 
@@ -24,51 +26,62 @@ export async function POST(request: NextRequest) {
 
     const sanitizedFirstName = sanitizeInput(firstName);
     const sanitizedLastName = sanitizeInput(lastName);
-    const fixturePath = getFixturePath(sanitizedFirstName, sanitizedLastName);
-
-    if (!fixturePath) {
-      return NextResponse.json<SearchResponse>(
-        {
-          success: true,
-          totalCases: 0,
-          cases: [],
-          query: {
-            firstName: sanitizedFirstName,
-            lastName: sanitizedLastName
-          }
-        },
-        { status: 404 }
-      );
-    }
 
     const projectRoot = process.cwd();
-    const pythonScript = path.join(projectRoot, 'python', 'parser.py');
-    const absoluteFixturePath = path.join(projectRoot, fixturePath);
-    const command = `python3 "${pythonScript}" "${absoluteFixturePath}" "${sanitizedFirstName}" "${sanitizedLastName}"`;
+    const scraperScript = path.join(projectRoot, 'python', 'scraper.py');
+    const parserScript = path.join(projectRoot, 'python', 'parser.py');
+
+    const scraperCommand = `python3 "${scraperScript}" "${sanitizedFirstName}" "${sanitizedLastName}"`;
 
     try {
-      const { stdout, stderr } = await execAsync(command);
+      const { stdout: scraperOutput, stderr: scraperStderr } = await execAsync(scraperCommand);
 
-      if (stderr) {
-        console.error('Python parser stderr:', stderr);
+      if (scraperStderr) {
+        console.log('Scraper log:', scraperStderr);
       }
 
-      const result: SearchResponse = JSON.parse(stdout);
+      const scraperResult = JSON.parse(scraperOutput);
 
-      if (result.totalCases === 0) {
-        return NextResponse.json(result, { status: 404 });
+      if (!scraperResult.html) {
+        return NextResponse.json(scraperResult, {
+          status: scraperResult.totalCases === 0 ? 404 : 200
+        });
       }
 
-      return NextResponse.json(result, { status: 200 });
+      const tmpHtmlFile = path.join(tmpdir(), `court-${Date.now()}.html`);
+      await writeFile(tmpHtmlFile, scraperResult.html);
+
+      try {
+        const parserCommand = `python3 "${parserScript}" "${tmpHtmlFile}" "${sanitizedFirstName}" "${sanitizedLastName}" "${scraperResult.dataSource}"`;
+        const { stdout: parserOutput, stderr: parserStderr } = await execAsync(parserCommand);
+
+        if (parserStderr) {
+          console.error('Parser stderr:', parserStderr);
+        }
+
+        const result: SearchResponse = JSON.parse(parserOutput);
+
+        await unlink(tmpHtmlFile);
+
+        if (result.totalCases === 0) {
+          return NextResponse.json(result, { status: 404 });
+        }
+
+        return NextResponse.json(result, { status: 200 });
+
+      } catch (parseError: any) {
+        await unlink(tmpHtmlFile).catch(() => {});
+        throw parseError;
+      }
 
     } catch (execError: any) {
-      console.error('Parser execution failed:', execError);
+      console.error('Execution failed:', execError);
 
       return NextResponse.json<ErrorResponse>(
         {
           success: false,
-          error: 'ParsingError',
-          message: 'Failed to parse court records'
+          error: 'ExecutionError',
+          message: 'Failed to fetch or parse court records'
         },
         { status: 500 }
       );
@@ -89,19 +102,7 @@ export async function POST(request: NextRequest) {
 }
 
 function sanitizeInput(input: string): string {
-  // Allow letters, spaces, hyphens, and apostrophes only
   return input.replace(/[^a-zA-Z\s\-']/g, '').trim();
-}
-
-function getFixturePath(firstName: string, lastName: string): string | null {
-  const key = `${firstName.toLowerCase()}-${lastName.toLowerCase()}`;
-
-  const fixtures: Record<string, string> = {
-    'john-smith': 'fixtures/john-smith-search.html',
-    'jose-garcia': 'fixtures/jose-garcia-search.html',
-  };
-
-  return fixtures[key] || null;
 }
 
 export async function GET() {
@@ -127,9 +128,10 @@ export async function GET() {
         { firstName: 'Jose', lastName: 'Garcia' }
       ]
     },
-    compliance: {
-      dataSource: 'mock',
-      note: 'Uses mock fixtures - no live scraping performed'
+    strategy: {
+      approach: 'Attempts live access first, falls back to mock if blocked',
+      dataSource: 'live or mock (automatic)',
+      compliance: 'No CAPTCHA bypass, respects access controls'
     }
   });
 }

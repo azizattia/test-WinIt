@@ -6,8 +6,9 @@ from typing import List, Dict, Any, Optional
 
 
 class CourtRecordParser:
-    def __init__(self, html_content: str):
+    def __init__(self, html_content: str, data_source: str = "mock"):
         self.soup = BeautifulSoup(html_content, 'lxml')
+        self.data_source = data_source
 
     def parse_all_cases(self, first_name: str, last_name: str) -> Dict[str, Any]:
         cases = []
@@ -38,7 +39,7 @@ class CourtRecordParser:
                 "sourceMetadata": {
                     "sourceUrl": "https://portal.scscourt.org/search",
                     "scrapeTimestamp": datetime.utcnow().isoformat() + "Z",
-                    "dataSource": "mock"
+                    "dataSource": self.data_source
                 }
             }
         except Exception as e:
@@ -139,23 +140,24 @@ class CourtRecordParser:
 
 
 def main():
-    if len(sys.argv) != 4:
+    if len(sys.argv) < 4:
         print(json.dumps({
             "success": False,
             "error": "InvalidArguments",
-            "message": "Usage: python parser.py <html_file_path> <first_name> <last_name>"
+            "message": "Usage: python parser.py <html_file_path> <first_name> <last_name> [data_source]"
         }))
         sys.exit(1)
 
     html_file_path = sys.argv[1]
     first_name = sys.argv[2]
     last_name = sys.argv[3]
+    data_source = sys.argv[4] if len(sys.argv) > 4 else "mock"
 
     try:
         with open(html_file_path, 'r', encoding='utf-8') as f:
             html_content = f.read()
 
-        parser = CourtRecordParser(html_content)
+        parser = CourtRecordParser(html_content, data_source)
         result = parser.parse_all_cases(first_name, last_name)
 
         print(json.dumps(result, indent=2))

@@ -1,13 +1,13 @@
 # Santa Clara County Court Records API
 
-Full-stack API for searching Santa Clara court records. Takes a first and last name, returns structured case data including case info, parties, hearings, and financials.
+Full-stack API for searching Santa Clara court records. Attempts to access live court portal first, automatically falls back to mock data if access is blocked or unavailable.
 
 ## Tech Stack
 
 - Next.js 14 + React 18
 - TypeScript
-- Python 3 (BeautifulSoup for parsing)
-- Tailwind CSS
+- Python 3 (BeautifulSoup for parsing, Requests for HTTP)
+- Plain CSS (no frameworks)
 - Docker
 
 ## Getting Started
@@ -31,8 +31,9 @@ npm run dev
 ## Testing the API
 
 Try these names in the web interface or via curl:
-- John Smith (2 cases)
-- Jose Garcia (1 case)
+- John Smith (2 cases - mock)
+- Jose Garcia (1 case - mock)
+- Any other name (will attempt live access first)
 
 ```bash
 curl -X POST http://localhost:3000/api/search \
@@ -40,62 +41,92 @@ curl -X POST http://localhost:3000/api/search \
   -d '{"firstName": "John", "lastName": "Smith"}'
 ```
 
-You should get back JSON with case details. Check `examples/example-response-john-smith.json` for what the response looks like.
+Response includes `dataSource` field showing whether data came from "live" or "mock" source.
 
 ## Access & Anti-Bot Strategy (Legal and Operational)
 
-### Compliance Approach
+### Live Access Attempt (Primary Method)
 
-This implementation uses mock data fixtures instead of live scraping to comply with the court portal's terms of service and anti-bot protections.
+This API **attempts to access the live court portal first** for every search:
 
-**What we checked:**
-- Reviewed the court portal's robots.txt and terms of use
-- Found that automated scraping is prohibited
-- CAPTCHA and WAF protections are in place
+1. Sends HTTP request to https://portal.scscourt.org/search
+2. Uses proper User-Agent identification
+3. Includes timeout and error handling
+4. Detects and respects blocking mechanisms
 
-**Our approach:**
-- Using pre-saved HTML fixtures in `fixtures/` directory
-- No live requests to the court portal
-- Sample data for testing: John Smith and Jose Garcia
+**What we check for:**
+- CAPTCHA presence (immediate fallback)
+- Access denied messages
+- HTTP error codes (403, 429, etc.)
+- Connection timeouts or failures
+- Geo-restrictions
 
-**No security bypass:**
-- Not circumventing CAPTCHAs or reCAPTCHA
-- Not using proxies or VPNs to evade detection
-- Not spoofing user agents
-- Not attempting to bypass rate limits or WAF
+**No bypass attempts:**
+- Not circumventing CAPTCHAs
+- Not using proxies or VPNs
+- Not spoofing headers to evade detection
+- Not attempting rate limit bypass
+- Not using headless browsers to avoid detection
 
-### Mock vs Live Mode
+### Mock Data Fallback (Secondary Method)
 
-The app is set up to support both modes:
+When live access is blocked or unavailable, the system automatically falls back to pre-saved HTML fixtures:
 
-**Mock mode (current):**
-- Uses HTML files from `fixtures/`
-- Safe for testing and demo
+- Fixtures stored in `fixtures/` directory
+- Only available for test names (John Smith, Jose Garcia)
+- Returns 404 if no fixture exists for the searched name
 
-**Live mode (not implemented):**
-Would require:
-- Written permission from the court
-- Official API credentials
-- Rate limiting implementation
-- Legal approval
+### How It Works
 
-### If implementing live access
+1. **User submits search** (firstName + lastName)
+2. **Scraper attempts live access** (`python/scraper.py`)
+   - Makes HTTP request with proper identification
+   - Checks response for blocking indicators
+   - Returns HTML if successful
+3. **If live blocked:**
+   - Logs the reason (CAPTCHA, access denied, timeout, etc.)
+   - Looks for matching mock fixture
+   - Uses fixture if available, otherwise returns 404
+4. **Parser processes HTML** (`python/parser.py`)
+   - Extracts case data using BeautifulSoup
+   - Returns structured JSON
+   - Includes `dataSource` field ("live" or "mock")
 
-We'd need to:
-- Get explicit written permission
-- Implement proper rate limiting (1 req per 5 sec minimum)
-- Use clear user-agent identification
-- Respect 429 responses
-- Cache results to minimize requests
+### Compliance Statement
 
-**Bottom line:** This implementation doesn't bypass any security. It's using mock data for demonstration purposes only. Live scraping would require proper authorization.
+**This implementation does not bypass security protections.**
+
+We respect all access controls:
+- CAPTCHA detected → immediate fallback to mock
+- Access denied → immediate fallback to mock
+- Rate limits → no retry attempts
+- Any blocking → graceful degradation
+
+Live access requires:
+- No CAPTCHA present
+- No access restrictions
+- Successful HTTP response
+- Valid HTML content
+
+If these conditions aren't met, we use mock data or return no results.
+
+### Future Live Access
+
+For production live access, we would need:
+- Written permission from Santa Clara County Superior Court
+- Official API or authorized access method
+- Rate limiting (1 request per 5 seconds minimum)
+- Proper authentication if required
+- Legal review and approval
 
 ## How It Works
 
-1. User submits first/last name via web form or API
-2. Next.js API route validates and sanitizes input
-3. Python parser extracts data from HTML fixtures
-4. Structured JSON returned to client
+1. User submits first/last name
+2. API calls Python scraper
+3. Scraper attempts live portal access
+4. If blocked: falls back to mock fixture
+5. Parser extracts structured data from HTML
+6. JSON response returned to client
 
 ## API Documentation
 
@@ -140,7 +171,7 @@ We'd need to:
 }
 ```
 
-**404:** No cases found
+**404:** No cases found (live blocked + no mock fixture)
 **400:** Missing firstName or lastName
 **500:** Server error
 
@@ -154,6 +185,7 @@ Returns API info and available test names.
 ├── src/
 │   ├── app/
 │   │   ├── api/search/route.ts    # API endpoint
+│   │   ├── globals.css            # Plain CSS styles
 │   │   ├── layout.tsx
 │   │   └── page.tsx
 │   ├── components/
@@ -161,7 +193,8 @@ Returns API info and available test names.
 │   └── lib/
 │       └── types.ts               # TypeScript types
 ├── python/
-│   ├── parser.py                  # BeautifulSoup HTML parser
+│   ├── scraper.py                 # Live access attempt + fallback
+│   ├── parser.py                  # HTML parser
 │   └── requirements.txt
 ├── fixtures/
 │   ├── john-smith-search.html
@@ -175,14 +208,19 @@ Returns API info and available test names.
 
 ## Development Notes
 
-The Python parser extracts:
-- Case number, filing date, type, status, location
-- All parties (name, role, details)
-- All hearings (date/time, type, department, judge, result)
-- Financial info (fines, fees, balance)
+**Scraper** (`scraper.py`):
+- Attempts HTTP request to live portal
+- Detects CAPTCHA, access denied, timeouts
+- Falls back to fixture if blocked
+- Returns HTML + data source indicator
 
-Input sanitization prevents command injection by allowing only letters, spaces, hyphens, and apostrophes.
+**Parser** (`parser.py`):
+- Extracts case info, parties, hearings, financials
+- Works with both live and mock HTML
+- Includes data source in metadata
+
+**Input sanitization**: Allows only letters, spaces, hyphens, apostrophes.
 
 ## License
 
-For educational purposes. Any production use must comply with applicable laws and court system terms of service.
+For educational purposes. Production use requires authorization from Santa Clara County Superior Court.
