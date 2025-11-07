@@ -27,7 +27,7 @@ def attempt_live_search(first_name: str, last_name: str) -> Optional[str]:
             COURT_PORTAL_URL,
             params=params,
             headers=headers,
-            timeout=10
+            timeout=3
         )
 
         if response.status_code == 200:

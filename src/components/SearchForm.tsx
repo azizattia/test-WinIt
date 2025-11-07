@@ -118,9 +118,26 @@ export default function SearchForm() {
         </div>
       )}
 
+      {loading && (
+        <div className="loading-container">
+          <div className="loading-skeleton">
+            <div className="skeleton-pulse skeleton-title"></div>
+            <div className="skeleton-pulse skeleton-line"></div>
+            <div className="skeleton-pulse skeleton-line"></div>
+            <div className="skeleton-pulse skeleton-line-short"></div>
+          </div>
+        </div>
+      )}
+
       {results && (
         <div className="results">
           <h2>Search Results</h2>
+
+          {results.cases.length > 0 && results.cases[0].sourceMetadata && (
+            <div className={`source-badge ${results.cases[0].sourceMetadata.dataSource}`}>
+              {results.cases[0].sourceMetadata.dataSource === 'live' ? '🟢 Live Data' : '📁 Mock Data'}
+            </div>
+          )}
 
           <div className="results-summary">
             <p>
