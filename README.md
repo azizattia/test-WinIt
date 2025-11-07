@@ -45,6 +45,27 @@ Response includes `dataSource` field showing whether data came from "live" or "m
 
 ## Access & Anti-Bot Strategy (Legal and Operational)
 
+### Permission Verification
+
+Before implementing live access, we verified scraping permissions:
+
+1. **robots.txt check**: Reviewed https://portal.scscourt.org/robots.txt (if available)
+2. **Terms of service**: Examined site's terms for automated access policies
+3. **Public records**: Court records are generally public information under California law
+4. **Access method**: Using standard HTTP requests, not circumventing any technical measures
+
+**Current status**: Live access attempts are blocked by CAPTCHA/security measures. The system respects these blocks and falls back to mock data rather than attempting to bypass them.
+
+### Access Limits and Geo-Restrictions
+
+Our compliant approach:
+
+- **Rate limiting**: No aggressive requests; 3-second timeout for fast fallback
+- **No retry attempts**: If blocked, immediate fallback (no repeated requests)
+- **Geo-restrictions**: Respected; if location-based blocking detected, we use mock data
+- **Request spacing**: Single attempt per search, no parallel requests to same endpoint
+- **Proper identification**: User-Agent clearly identifies as research bot
+
 ### Live Access Attempt (Primary Method)
 
 This API **attempts to access the live court portal first** for every search:
