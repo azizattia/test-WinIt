@@ -12,7 +12,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-RUN pip3 install --no-cache-dir -r python/requirements.txt
+RUN pip3 install --no-cache-dir --break-system-packages -r python/requirements.txt
 RUN npm run build
 
 FROM node:18-alpine AS runner
@@ -25,7 +25,7 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
 COPY python/requirements.txt ./python/
-RUN pip3 install --no-cache-dir -r python/requirements.txt
+RUN pip3 install --no-cache-dir --break-system-packages -r python/requirements.txt
 
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
