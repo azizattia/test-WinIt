@@ -1,0 +1,103 @@
+{
+  "success": true,
+  "totalCases": 2,
+  "cases": [
+    {
+      "caseInfo": {
+        "caseNumber": "23CV401234",
+        "filingDate": "01/15/2023",
+        "caseType": "Civil - Unlimited",
+        "status": "Active",
+        "courtLocation": "Santa Clara County Superior Court - Old Courthouse"
+      },
+      "parties": [
+        {
+          "name": "SMITH, JOHN",
+          "role": "Plaintiff",
+          "details": "Individual"
+        },
+        {
+          "name": "ANDERSON, ROBERT",
+          "role": "Defendant",
+          "details": "Individual"
+        }
+      ],
+      "hearings": [
+        {
+          "dateTime": "03/15/2023 09:00 AM",
+          "type": "Case Management Conference",
+          "department": "Department 12",
+          "judge": "Judge Maria Rodriguez",
+          "result": "Continued to 04/20/2023"
+        },
+        {
+          "dateTime": "04/20/2023 09:00 AM",
+          "type": "Case Management Conference",
+          "department": "Department 12",
+          "judge": "Judge Maria Rodriguez",
+          "result": "Completed"
+        },
+        {
+          "dateTime": "06/10/2023 10:00 AM",
+          "type": "Motion Hearing",
+          "department": "Department 12",
+          "judge": "Judge Maria Rodriguez",
+          "result": "Granted"
+        }
+      ],
+      "financials": {
+        "fees": 485,
+        "balance": 0
+      },
+      "sourceMetadata": {
+        "sourceUrl": "https://portal.scscourt.org/search",
+        "scrapeTimestamp": "2023-11-07T12:34:56.789Z",
+        "dataSource": "mock"
+      }
+    },
+    {
+      "caseInfo": {
+        "caseNumber": "22TR123456",
+        "filingDate": "08/22/2022",
+        "caseType": "Traffic - Infraction",
+        "status": "Closed",
+        "courtLocation": "Santa Clara County Superior Court - Traffic Division"
+      },
+      "parties": [
+        {
+          "name": "PEOPLE OF THE STATE OF CALIFORNIA",
+          "role": "Plaintiff",
+          "details": "Government"
+        },
+        {
+          "name": "SMITH, JOHN",
+          "role": "Defendant",
+          "details": "Individual"
+        }
+      ],
+      "hearings": [
+        {
+          "dateTime": "10/05/2022 08:30 AM",
+          "type": "Arraignment",
+          "department": "Department T3",
+          "judge": "Judge David Chen",
+          "result": "Plea Entered - Guilty"
+        }
+      ],
+      "financials": {
+        "fines": 238,
+        "fees": 52,
+        "balance": 0
+      },
+      "sourceMetadata": {
+        "sourceUrl": "https://portal.scscourt.org/search",
+        "scrapeTimestamp": "2023-11-07T12:34:56.789Z",
+        "dataSource": "mock"
+      }
+    }
+  ],
+  "query": {
+    "firstName": "John",
+    "lastName": "Smith"
+  }
+}

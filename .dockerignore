@@ -1,0 +1,16 @@
+node_modules
+npm-debug.log
+.next
+.git
+.gitignore
+README.md
+.dockerignore
+Dockerfile
+docker-compose.yml
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env
+venv
